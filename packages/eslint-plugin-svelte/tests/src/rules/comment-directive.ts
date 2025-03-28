@@ -9,7 +9,6 @@ import * as svelteParser from 'svelte-eslint-parser';
 
 // Initialize linter.
 const linter = new ESLint({
-	// @ts-expect-error -- Type error?
 	baseConfig: {
 		languageOptions: {
 			parser: svelteParser,
@@ -350,9 +349,95 @@ describe('comment-directive', () => {
 		});
 	});
 
+	describe('reportUnusedDisableDirectives (fix: true)', () => {
+		let linter: InstanceType<typeof ESLint>;
+
+		before(() => {
+			linter = new ESLint({
+				fix: true,
+				baseConfig: {
+					languageOptions: {
+						parser: svelteParser,
+						ecmaVersion: 2020
+					},
+					plugins: {
+						svelte: plugin
+					},
+					rules: {
+						'no-unused-vars': 'error',
+						'svelte/comment-directive': ['error', { reportUnusedDisableDirectives: true }],
+						'svelte/no-at-html-tags': 'error',
+						'svelte/no-at-debug-tags': 'error'
+					},
+					files: ['**'],
+					processor: 'svelte/svelte'
+				},
+				overrideConfigFile: true
+			});
+		});
+
+		it('remove unused <!-- eslint-disable -->', async () => {
+			const code = `
+        <!-- eslint-disable -->
+        <div>Hello</div>
+      `;
+			const { output } = (await linter.lintText(code, { filePath: 'test.svelte' }))[0];
+
+			assert.strictEqual(output, '\n        \n        <div>Hello</div>\n      ');
+		});
+
+		it('remove unused <!-- eslint-disable svelte/no-at-debug-tags, svelte/no-at-html-tags -->', async () => {
+			const code = `
+        <!-- eslint-disable svelte/no-at-debug-tags, svelte/no-at-html-tags -->
+        <div>Hello</div>
+      `;
+			const { output } = (await linter.lintText(code, { filePath: 'test.svelte' }))[0];
+
+			assert.strictEqual(output, '\n        \n        <div>Hello</div>\n      ');
+		});
+
+		it('remove unused <!-- eslint-disable-next-line svelte/no-at-debug-tags, svelte/no-at-html-tags -->', async () => {
+			const code = `
+        <!-- eslint-disable-next-line svelte/no-at-debug-tags, svelte/no-at-html-tags -->
+        <div>Hello</div>
+        <div>{@html foo}{@debug foo}</div>
+      `;
+			const { output } = (await linter.lintText(code, { filePath: 'test.svelte' }))[0];
+
+			assert.strictEqual(
+				output,
+				'\n        \n        <div>Hello</div>\n        <div>{@html foo}{@debug foo}</div>\n      '
+			);
+		});
+
+		it('remove unused <!-- eslint-enable -->', async () => {
+			const code = `
+        <!-- eslint-enable -->
+      `;
+			const { output } = (await linter.lintText(code, { filePath: 'test.svelte' }))[0];
+
+			assert.strictEqual(output, '\n        \n      ');
+		});
+
+		it('remove unused <!-- eslint-enable svelte/no-at-debug-tags -->', async () => {
+			const code = `
+        <!-- eslint-disable svelte/no-at-html-tags -->
+        <div>{@html foo}</div>
+        <!-- eslint-enable svelte/no-at-debug-tags -->
+      `;
+			const { output } = (await linter.lintText(code, { filePath: 'test.svelte' }))[0];
+
+			assert.strictEqual(
+				output,
+				'\n        <!-- eslint-disable svelte/no-at-html-tags -->' +
+					'\n        <div>{@html foo}</div>' +
+					'\n        <!-- eslint-enable  -->\n      '
+			);
+		});
+	});
+
 	describe('reportUnusedDisableDirectives', () => {
 		const linter = new ESLint({
-			// @ts-expect-error -- Type error?
 			baseConfig: {
 				languageOptions: {
 					parser: svelteParser,

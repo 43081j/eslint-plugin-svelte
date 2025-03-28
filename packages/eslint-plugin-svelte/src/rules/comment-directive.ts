@@ -7,6 +7,7 @@ import { getFilename, getSourceCode } from '../utils/compat.js';
 type RuleAndLocation = {
 	ruleId: string;
 	loc: AST.SourceLocation;
+	range: [number, number];
 };
 // -----------------------------------------------------------------------------
 // Helpers
@@ -34,6 +35,7 @@ export default createRule('comment-directive', {
 			category: 'System',
 			recommended: 'base'
 		},
+		fixable: 'code',
 		schema: [
 			{
 				type: 'object',
@@ -88,10 +90,13 @@ export default createRule('comment-directive', {
 				const ruleId = res[1].trim();
 
 				const commentStart = comment.range[0] + 4; /* <!-- */
-				const start = sourceCode.getLocFromIndex(commentStart + startIndex);
-				const end = sourceCode.getLocFromIndex(commentStart + startIndex + ruleId.length);
+				const rangeStart = commentStart + startIndex;
+				const rangeEnd = commentStart + startIndex + ruleId.length;
+				const start = sourceCode.getLocFromIndex(rangeStart);
+				const end = sourceCode.getLocFromIndex(rangeEnd);
 				rules.push({
 					ruleId,
+					range: [rangeStart, rangeEnd],
 					loc: {
 						start,
 						end
@@ -117,7 +122,10 @@ export default createRule('comment-directive', {
 								context.report({
 									loc: rule.loc,
 									messageId: 'unusedRule',
-									data: { rule: rule.ruleId, kind: parsed.type }
+									data: { rule: rule.ruleId, kind: parsed.type },
+									fix: (fixer) => {
+										return fixer.removeRange(rule.range);
+									}
 								});
 							}
 							directives.disableBlock(comment.loc.end, rule.ruleId, {
@@ -129,7 +137,10 @@ export default createRule('comment-directive', {
 							context.report({
 								loc: comment.loc,
 								messageId: 'unused',
-								data: { kind: parsed.type }
+								data: { kind: parsed.type },
+								fix: (fixer) => {
+									return fixer.remove(comment);
+								}
 							});
 						}
 						directives.disableBlock(comment.loc.end, ALL_RULES, {
@@ -142,7 +153,10 @@ export default createRule('comment-directive', {
 							context.report({
 								loc: rule.loc,
 								messageId: 'unusedEnableRule',
-								data: { rule: rule.ruleId, kind: parsed.type }
+								data: { rule: rule.ruleId, kind: parsed.type },
+								fix: (fixer) => {
+									return fixer.removeRange(rule.range);
+								}
 							});
 						}
 						directives.enableBlock(comment.loc.start, rule.ruleId, {
@@ -154,7 +168,10 @@ export default createRule('comment-directive', {
 						context.report({
 							loc: comment.loc,
 							messageId: 'unusedEnable',
-							data: { kind: parsed.type }
+							data: { kind: parsed.type },
+							fix: (fixer) => {
+								return fixer.remove(comment);
+							}
 						});
 					}
 					directives.enableBlock(comment.loc.start, ALL_RULES, {
@@ -178,7 +195,10 @@ export default createRule('comment-directive', {
 							context.report({
 								loc: rule.loc,
 								messageId: 'unusedRule',
-								data: { rule: rule.ruleId, kind: parsed.type }
+								data: { rule: rule.ruleId, kind: parsed.type },
+								fix: (fixer) => {
+									return fixer.removeRange(rule.range);
+								}
 							});
 						}
 						directives.disableLine(line, rule.ruleId, {
@@ -190,7 +210,10 @@ export default createRule('comment-directive', {
 						context.report({
 							loc: comment.loc,
 							messageId: 'unused',
-							data: { kind: parsed.type }
+							data: { kind: parsed.type },
+							fix: (fixer) => {
+								return fixer.remove(comment);
+							}
 						});
 					}
 					directives.disableLine(line, ALL_RULES, {
